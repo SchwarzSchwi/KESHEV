@@ -517,7 +517,94 @@ export function createStudentView() {
       draw();
       return root;
     },
-    renderStatus() { return '학생 구현 대기: 기기·세션·알림과 연결 점검 상태를 구분하세요.'; },
+    renderStatus({ devices, sessions, notifications, diagnostics, mode } = {}) {
+      const root = document.createElement('section');
+      root.setAttribute('data-student-status', 'true');
+
+      const text = (value) => {
+        if (typeof value === 'string' && value.trim()) return value;
+        if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+        if (typeof value === 'boolean') return String(value);
+        return '확인 불가';
+      };
+      const codeText = (value) =>
+        typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,79}$/.test(value)
+          ? value
+          : '확인 불가';
+      const addLine = (parent, content) => {
+        const line = document.createElement('p');
+        line.textContent = content;
+        parent.appendChild(line);
+        return line;
+      };
+      const section = (heading) => {
+        const node = document.createElement('section');
+        const title = document.createElement('h4');
+        title.textContent = heading;
+        node.appendChild(title);
+        root.appendChild(node);
+        return node;
+      };
+      const modeLabels = {
+        connected: '연결됨(connected) · 모든 점검의 통과를 뜻하지 않습니다.',
+        demo: '예제 자료(demo) · 실제 연결 결과가 아닙니다.',
+        disconnected: '연결 없음(disconnected)',
+        unknown: '연결 상태 확인 불가(unknown)',
+      };
+      const showMode = (parent, value) => {
+        addLine(parent, typeof value === 'string' && Object.hasOwn(modeLabels, value)
+          ? modeLabels[value] : modeLabels.unknown);
+      };
+      const showError = (parent, name, resource, retry) => {
+        const code = resource?.error?.code;
+        const timeout = ['TIMEOUT', 'ENGINE_TIMEOUT', 'REQUEST_TIMEOUT'].includes(code);
+        addLine(parent, `${name}을 불러오지 못했습니다${timeout ? ' · 시간 초과' : ''}: ${text(resource?.error?.message)}`);
+        addLine(parent, `오류 코드: ${codeText(code)}`);
+        addLine(parent, retry);
+      };
+      const renderList = (name, resource, emptyText, key, labels) => {
+        const parent = section(name);
+        showMode(parent, resource?.mode);
+        if (resource?.status === 'loading') {
+          addLine(parent, '불러오는 중');
+        } else if (resource?.status === 'error') {
+          showError(parent, name, resource, '다시 시도는 위쪽 다시 불러오기 버튼을 직접 누르세요. 자동으로 재요청하지 않습니다.');
+        } else if (resource?.status !== 'ok' || !Array.isArray(resource.data)) {
+          addLine(parent, `${name} 자료를 확인할 수 없습니다.`);
+        } else if (resource.data.length === 0) {
+          addLine(parent, emptyText);
+        } else {
+          for (const item of resource.data) {
+            const status = item?.status;
+            const label = typeof status === 'string' && Object.hasOwn(labels, status)
+              ? labels[status] : '확인 불가';
+            addLine(parent, `${key}: ${text(item?.[key])} · 상태: ${text(status)} (${label})`);
+          }
+        }
+      };
+
+      showMode(root, mode);
+      renderList('기기', devices, '등록된 기기가 없음', 'label', {
+        compliant: '보안 기준 충족', noncompliant: '보안 기준 미충족', unknown: '확인 불가',
+      });
+      addLine(root, '세션은 현재 검증된 연결 최대 한 개만 표시합니다. 과거 또는 전체 세션 목록이 아닙니다.');
+      renderList('세션', sessions, '현재 연결 없음', 'id', {
+        active: '활성', expired: '만료', revoked: '철회됨', unknown: '확인 불가',
+      });
+
+      const diagnosticSection = section('진단 정보');
+      showMode(diagnosticSection, diagnostics?.mode);
+      if (diagnostics?.status === 'idle') {
+        addLine(diagnosticSection, '진단 정보를 아직 조회하지 않았습니다. 제공 화면의 도움정보 불러오기 버튼을 직접 누르세요.');
+      } else if (diagnostics?.status === 'loading') {
+        addLine(diagnosticSection, '불러오는 중');
+      } else if (diagnostics?.status === 'error') {
+        showError(diagnosticSection, '진단 정보', diagnostics, '제공 화면의 도움정보 불러오기 버튼을 직접 눌러 다시 시도하세요. 위쪽 다시 불러오기는 진단 정보를 재조회하지 않습니다.');
+      } else {
+        addLine(diagnosticSection, '표시할 진단 정보를 확인할 수 없습니다.');
+      }
+      return root;
+    },
     renderVulnerabilities() { return '학생 구현 대기: 정확한 설치 버전·OSV 출처·조회 시각·부분 결과·조회 실패를 구분하세요.'; },
     renderAiConnection() { return '학생 구현 대기: 모델 응답 점검과 실제 사건 설명을 구분하고 AI 오류·취소·수동 복구를 안내하세요.'; },
     renderExplanation() { return '학생 구현 대기: 선택한 사건의 근거·규칙·현재 상태와 AI 설명을 연결하세요. 제안은 자동 실행하지 않습니다.'; },
