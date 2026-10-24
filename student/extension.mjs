@@ -935,6 +935,151 @@ export function createStudentView() {
       return root;
     },
 
-    renderAction() { return '학생 구현 대기: 현재 사건·조치·실제 대상·사람 확인·ACK와 원천 효과·unknown을 구분하세요.'; },
+        renderAction({
+      status,
+      event,
+      actionId,
+      target,
+      receipt,
+      observation,
+      message,
+      confirmationExpiresAt,
+      error,
+    } = {}) {
+      const root = document.createElement('section');
+      root.setAttribute('data-student-action', 'true');
+
+      const title = document.createElement('h3');
+      title.textContent = '학생 조치 상태 표시';
+      root.appendChild(title);
+
+      const addLine = (text) => {
+        const p = document.createElement('p');
+        p.textContent = text;
+        root.appendChild(p);
+      };
+
+      const textOr = (value, fallback) =>
+        typeof value === 'string' && value.trim().length > 0 ? value : fallback;
+
+      const modeGuide = document.createElement('p');
+      modeGuide.textContent =
+        '제공 화면의 버튼(대상과 조치를 확인했으며 집행합니다 / 원천 결과만 재조회 / 조치 화면 취소)을 사용하세요. 이 학생 화면은 상태 표시만 합니다.';
+      root.appendChild(modeGuide);
+
+      // 상태별 기본 문구
+      const statusLines = {
+        idle: '상태: 아직 미실행(idle)',
+        loading: '상태: 조치 준비 또는 결과 조회 중(loading)',
+        prepared: '상태: 준비됨·미실행(prepared) · 사람 확인 후 집행 필요',
+        executing: '상태: 서버에 전달 중(executing) · 결과가 아직 확인되지 않았습니다.',
+        pending: '상태: 서버 접수·처리 중(pending) · ACK는 효과 확인이 아닙니다.',
+        denied: '상태: 거절(denied)',
+        failed: '상태: 실패(failed)',
+        unknown: '상태: 결과 불명(unknown) · 성공/효과 없음으로 단정하지 말고 원천 결과만 재조회하세요.',
+        expired: '상태: 확인 기한 지남(expired) · 다시 준비하세요.',
+        error: '상태: 요청 처리 안 됨(error)',
+      };
+
+      const succeededObserved = status === 'succeeded' && observation?.effectApplied === true;
+      if (succeededObserved) {
+        addLine('상태: 효과 확인(succeeded)');
+      } else if (status === 'succeeded') {
+        addLine(
+          '상태: 결과 불명(unknown) · succeeded 응답이라도 observation.effectApplied===true가 아니면 효과 확인으로 표시하지 않습니다.'
+        );
+      } else {
+        addLine(statusLines[status] ?? `상태: 확인 불가(${textOr(status, '값 없음')})`);
+      }
+
+      // 상태별 부가 안내
+      if (status === 'prepared') {
+        addLine('안내: 아직 실행되지 않았습니다. 대상과 확인 기한을 읽고 제공 화면에서 사람 확인 후 집행하세요.');
+      } else if (status === 'executing' || status === 'pending' || status === 'loading') {
+        addLine('안내: 처리 진행 상태입니다. 완료/성공으로 해석하지 마세요.');
+      } else if (status === 'unknown') {
+        addLine('안내: 결과를 확인할 수 없습니다. 효과 없음이나 성공으로 판단하지 말고 결과만 다시 조회하세요.');
+      } else if (status === 'expired') {
+        addLine('안내: 기존 확인 의도는 만료되었습니다. 현재 사건으로 다시 준비하세요.');
+      } else if (status === 'denied' || status === 'failed') {
+        addLine(`안내: ${textOr(message, '원천 메시지 없음')}`);
+      } else if (status === 'error') {
+        addLine(`안내: ${textOr(error?.message, textOr(message, '오류 내용을 확인할 수 없습니다.'))}`);
+      }
+
+      // 현재 사건/근거/조치
+      if (event?.id) addLine(`사건 ID: ${event.id}`);
+      if (Array.isArray(event?.evidence) && event.evidence.length > 0) {
+        const ids = event.evidence
+          .map((row) => (typeof row?.id === 'string' && row.id.trim() ? row.id : null))
+          .filter((id) => id !== null);
+        if (ids.length > 0) {
+          addLine(`근거 ID: ${ids.join(', ')}`);
+        }
+      }
+      if (typeof actionId === 'string' && actionId.trim()) {
+        addLine(`조치 ID: ${actionId}`);
+      }
+
+      // 실제 대상
+      if (target && (target.id || target.generation !== undefined)) {
+        addLine(`실제 대상 ID: ${textOr(target?.id, '확인 불가')}`);
+        addLine(
+          `대상 세대(generation): ${
+            Number.isFinite(target?.generation) ? String(target.generation) : textOr(target?.generation, '확인 불가')
+          }`
+        );
+      }
+
+      // 확인 기한
+      if (typeof confirmationExpiresAt === 'string' && confirmationExpiresAt.trim()) {
+        addLine(`확인 기한: ${confirmationExpiresAt}`);
+      }
+
+      // 요청/접수
+      if (receipt && typeof receipt === 'object') {
+        if (typeof receipt.requestId === 'string' && receipt.requestId.trim()) {
+          addLine(`요청 ID(requestId): ${receipt.requestId}`);
+        }
+        if (typeof receipt.receiptId === 'string' && receipt.receiptId.trim()) {
+          addLine(`접수 ID(receiptId): ${receipt.receiptId}`);
+        }
+        if (receipt.version !== undefined && receipt.version !== null) {
+          addLine(`버전(version): ${String(receipt.version)}`);
+        }
+      }
+
+      // 효과 관측
+      if (observation && typeof observation === 'object') {
+        if (typeof observation.observedAt === 'string' && observation.observedAt.trim()) {
+          addLine(`관측 시각(observedAt): ${observation.observedAt}`);
+        }
+        if (observation.effectApplied === true) {
+          addLine('effectApplied: true');
+        } else if (observation.effectApplied === false) {
+          addLine('effectApplied: false');
+        }
+      }
+
+      // 안전한 오류 출력
+      if (status === 'error' && error && typeof error === 'object') {
+        if (typeof error.code === 'string' && error.code.trim()) {
+          addLine(`오류 코드: ${error.code}`);
+        }
+        if (typeof error.message === 'string' && error.message.trim()) {
+          addLine(`오류 메시지: ${error.message}`);
+        }
+      }
+
+      // 성공적으로 렌더링한 경우만 데이터 속성 부여(입력에 있는 값만)
+      if (typeof event?.id === 'string' && event.id.trim()) {
+        root.setAttribute('data-student-action-event', event.id);
+      }
+      if (typeof receipt?.requestId === 'string' && receipt.requestId.trim()) {
+        root.setAttribute('data-student-action-request', receipt.requestId);
+      }
+
+      return root;
+    },
   };
 }
