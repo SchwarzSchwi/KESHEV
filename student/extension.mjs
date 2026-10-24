@@ -843,6 +843,9 @@ export function createStudentView() {
       const summary = textOr(data?.summary, '');
       if (!textOr(event.id, '')) return refuse('사건 ID를 확인할 수 없습니다.');
       if (!data || typeof data !== 'object') return refuse('설명 자료가 없습니다.');
+      if (data.executed === true) return refuse('AI가 이미 실행했다고 답한 설명은 쓸 수 없습니다(executed:true).');
+      if (data.executed !== false) return refuse('설명의 실행 여부(executed)를 확인할 수 없습니다.');
+      if (data.requiresHumanConfirmation !== true) return refuse('사람 확인 필요 여부(requiresHumanConfirmation)를 확인할 수 없습니다.');
       if (!summary) return refuse('AI 요약이 없습니다.');
 
       // 근거 ID는 현재 기록의 event.evidence 와 정확히 같은 id 로만 연결합니다. 없는 ID는 만들지 않습니다.
