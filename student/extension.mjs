@@ -861,6 +861,17 @@ export function createStudentView() {
         return refuse('근거가 맞지 않음 — 설명이 인용한 근거 ID가 없거나 이 기록의 근거에 없습니다.');
       }
 
+      const supportedActions = Array.isArray(event.supportedActions) ? event.supportedActions : [];
+      const proposals = data.proposals;
+      if (!Array.isArray(proposals)) return refuse('AI 제안 목록을 확인할 수 없습니다.');
+      const proposalOk = (p) => p && typeof p === 'object'
+        && textOr(p.action, '') !== '' && supportedActions.includes(p.action)
+        && textOr(p.reason, '') !== ''
+        && (p.evidenceIds === undefined || bindIds(p.evidenceIds));
+      if (!proposals.every(proposalOk)) {
+        return refuse('AI 제안의 조치 또는 근거 ID가 이 기록과 맞지 않습니다.');
+      }
+
       const addHeading = (text) => {
         const h = document.createElement('h4');
         h.textContent = text;
@@ -885,6 +896,34 @@ export function createStudentView() {
       addList(data.evidenceIds.map((id) => `${id} — ${evidenceById.get(id)}`));
       addHeading('규칙');
       addList(rules.map((row) => `${row.id} — ${row.text}`));
+
+      // unknown 은 확인 불가이며 정상·안전으로 바꾸지 않습니다.
+      const stateLabels = { access: '접속', session: '세션', device: '기기' };
+      const unknownLines = [];
+      for (const [key, label] of Object.entries(stateLabels)) {
+        const value = event.state?.[key];
+        if (value === 'unknown') unknownLines.push(`${label}: 확인 불가(unknown)`);
+        else if (textOr(value, '') === '') unknownLines.push(`${label}: 확인 불가(값 없음)`);
+      }
+      addHeading('확인 불가 상태');
+      if (unknownLines.length > 0) addList(unknownLines);
+      else addLine('없음');
+
+      addHeading('AI 제안 조치');
+      if (proposals.length === 0) {
+        addLine(supportedActions.length === 0
+          ? '연동 시스템이 지원하는 조치가 없어 제안이 없습니다(정상)'
+          : 'AI가 제안한 조치가 없습니다');
+      } else {
+        for (const p of proposals) {
+          const lines = [`조치: ${p.action}`, `이유: ${p.reason}`];
+          if (Array.isArray(p.evidenceIds)) lines.push(`제안 근거 ID: ${p.evidenceIds.join(', ')}`);
+          lines.push('사람 확인이 필요하며 실행되지 않았습니다');
+          addList(lines);
+        }
+      }
+      addLine('AI 설명은 해석이며 참고용입니다. 사실 판단은 근거 글과 연동 시스템이 알려 준 상태로 합니다.');
+      addLine('AI 설명·제안만으로 보안 조치는 실행되지 않습니다.');
 
       addLine(`설명 확인 시각: ${textOr(checkedAt, '시각 정보 없음')}`);
 
