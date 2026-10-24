@@ -702,9 +702,6 @@ export function createStudentView() {
         root.appendChild(p);
         return p;
       };
-      
-      const textOr = (value, fallback) =>
-        typeof value === 'string' && value.trim().length > 0 ? value : fallback;
     
       const modeLabels = {
         demo: '예제 자료(demo) · 실제 연결 결과가 아닙니다.',
