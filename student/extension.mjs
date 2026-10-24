@@ -733,10 +733,35 @@ export function createStudentView() {
     return root;
   }
 
-  if (status !== 'ok') {
+   if (status !== 'ok') {
     addLine(`조회 상태 확인 불가(${textOr(status, '값 없음')})`);
     addLine('현재 결과를 표시하지 않습니다.');
     return root;
+  }
+
+  const overallStatusLabels = {
+    complete: '모두 조회',
+    partial: '일부 조회 실패',
+    not_checked: '아직 조회 안 함',
+    not_configured: '조회 준비 미완료',
+    unverifiable: 'lock 파일 확인 불가',
+  };
+
+  const overallStatus =
+    typeof data?.status === 'string' && Object.hasOwn(overallStatusLabels, data.status)
+      ? data.status
+      : 'unverifiable';
+
+  addLine(`전체 조회 상태: ${overallStatusLabels[overallStatus]}(${overallStatus})`);
+
+  if (overallStatus === 'not_checked') {
+    addLine('승인된 공개 조회 대상이 아직 없어 조회하지 않은 상태일 수 있습니다.');
+  } else if (overallStatus === 'not_configured') {
+    addLine('조회 대상 프로젝트 설정이 필요합니다.');
+  } else if (overallStatus === 'partial') {
+    addLine('일부 패키지 조회에 실패했습니다. 실패는 취약점 없음이 아닙니다.');
+  } else if (overallStatus === 'unverifiable') {
+    addLine('전체 조회를 확인할 수 없습니다. 확인 가능한 항목만 표시해야 합니다.');
   }
 
   // ok 상세 표시는 다음 단계에서 추가
