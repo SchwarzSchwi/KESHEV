@@ -845,6 +845,22 @@ export function createStudentView() {
       if (!data || typeof data !== 'object') return refuse('설명 자료가 없습니다.');
       if (!summary) return refuse('AI 요약이 없습니다.');
 
+      // 근거 ID는 현재 기록의 event.evidence 와 정확히 같은 id 로만 연결합니다. 없는 ID는 만들지 않습니다.
+      const isEntry = (row) => row && typeof row === 'object'
+        && textOr(row.id, '') !== '' && textOr(row.text, '') !== '';
+      const validList = (list) => (Array.isArray(list) && list.every(isEntry) ? list : []);
+      const evidence = validList(event.evidence);
+      const rules = validList(event.rules);
+      if (evidence.length === 0) return refuse('근거 부족 — 이 기록에 확인할 수 있는 근거가 없습니다.');
+      if (rules.length === 0) return refuse('근거 부족 — 이 기록에 확인할 수 있는 규칙이 없습니다.');
+      const evidenceById = new Map(evidence.map((row) => [row.id, row.text]));
+      const bindIds = (ids) => Array.isArray(ids) && ids.length > 0
+        && new Set(ids).size === ids.length
+        && ids.every((id) => typeof id === 'string' && evidenceById.has(id));
+      if (!bindIds(data.evidenceIds)) {
+        return refuse('근거가 맞지 않음 — 설명이 인용한 근거 ID가 없거나 이 기록의 근거에 없습니다.');
+      }
+
       const addHeading = (text) => {
         const h = document.createElement('h4');
         h.textContent = text;
@@ -854,6 +870,22 @@ export function createStudentView() {
       addLine(`사건 ID: ${event.id}`);
       addHeading('AI 설명(참고용)');
       addLine(summary);
+
+      const addList = (lines) => {
+        const ul = document.createElement('ul');
+        for (const text of lines) {
+          const li = document.createElement('li');
+          li.textContent = text;
+          ul.appendChild(li);
+        }
+        root.appendChild(ul);
+      };
+
+      addHeading('인용한 근거');
+      addList(data.evidenceIds.map((id) => `${id} — ${evidenceById.get(id)}`));
+      addHeading('규칙');
+      addList(rules.map((row) => `${row.id} — ${row.text}`));
+
       addLine(`설명 확인 시각: ${textOr(checkedAt, '시각 정보 없음')}`);
 
       // 모든 확인을 통과한 뒤에만 성공 표식을 붙입니다.
