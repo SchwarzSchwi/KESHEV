@@ -26,7 +26,8 @@ export function createStudentView() {
         statusLine.textContent = '불러오는 중';
         root.appendChild(statusLine);
         return root;
-      },
+      }
+    },
     renderDecision() { return '학생 구현 대기: 서버의 판정과 이유를 연결하세요.'; },
     renderEvents() { return '학생 구현 대기: 본인 접속·XDR 기록을 연결하세요.'; },
     renderStatus() { return '학생 구현 대기: 기기·세션·알림과 연결 점검 상태를 구분하세요.'; },
