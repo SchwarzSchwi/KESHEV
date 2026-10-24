@@ -702,7 +702,8 @@ export function createStudentView() {
         root.appendChild(p);
         return p;
       };
-    
+      const textOr = (value, fallback) =>
+      typeof value === 'string' && value.trim().length > 0 ? value : fallback;
       const modeLabels = {
         demo: '예제 자료(demo) · 실제 연결 결과가 아닙니다.',
         disconnected: '연결 없음(disconnected)',
@@ -848,73 +849,7 @@ export function createStudentView() {
         list.appendChild(row);
       }
       
-        addLine('OSV는 알려진 취약점 데이터베이스입니다. 조회 결과가 없다는 사실만으로 패키지나 앱 전체의 안전이 보장되지는 않습니다.');
-        return root;
-      },
-    
-      const textOr = (value, fallback) =>
-        typeof value === 'string' && value.trim().length > 0 ? value : fallback;
-    
-      const modeLabels = {
-        demo: '예제 자료(demo) · 실제 연결 결과가 아닙니다.',
-        disconnected: '연결 없음(disconnected)',
-        unknown: '연결 상태 확인 불가(unknown)',
-      };
-      if (Object.hasOwn(modeLabels, mode)) {
-        addLine(modeLabels[mode]);
-      }
-    
-      if (status === 'idle') {
-        addLine('조회 전(idle)');
-        addLine('아직 설치 패키지 버전 조회를 실행하지 않았습니다.');
-        return root;
-      }
-    
-      if (status === 'loading') {
-        addLine('조회 중(loading)');
-        addLine('설치 패키지 버전과 알려진 취약점 정보를 확인하고 있습니다.');
-        return root;
-      }
-    
-      if (status === 'error') {
-        addLine(`조회 실패(error): ${textOr(error?.message, '오류 내용을 확인할 수 없습니다.')}`);
-        addLine('조회 실패는 취약점 없음이 아닙니다.');
-        return root;
-      }
-    
-       if (status !== 'ok') {
-        addLine(`조회 상태 확인 불가(${textOr(status, '값 없음')})`);
-        addLine('현재 결과를 표시하지 않습니다.');
-        return root;
-      }
-    
-      const overallStatusLabels = {
-        complete: '모두 조회',
-        partial: '일부 조회 실패',
-        not_checked: '아직 조회 안 함',
-        not_configured: '조회 준비 미완료',
-        unverifiable: 'lock 파일 확인 불가',
-      };
-    
-      const overallStatus =
-        typeof data?.status === 'string' && Object.hasOwn(overallStatusLabels, data.status)
-          ? data.status
-          : 'unverifiable';
-    
-      addLine(`전체 조회 상태: ${overallStatusLabels[overallStatus]}(${overallStatus})`);
-    
-      if (overallStatus === 'not_checked') {
-        addLine('승인된 공개 조회 대상이 아직 없어 조회하지 않은 상태일 수 있습니다.');
-      } else if (overallStatus === 'not_configured') {
-        addLine('조회 대상 프로젝트 설정이 필요합니다.');
-      } else if (overallStatus === 'partial') {
-        addLine('일부 패키지 조회에 실패했습니다. 실패는 취약점 없음이 아닙니다.');
-      } else if (overallStatus === 'unverifiable') {
-        addLine('전체 조회를 확인할 수 없습니다. 확인 가능한 항목만 표시해야 합니다.');
-      }
-    
-      // ok 상세 표시는 다음 단계에서 추가
-      addLine('조회 완료(ok)');
+      addLine('OSV는 알려진 취약점 데이터베이스입니다. 조회 결과가 없다는 사실만으로 패키지나 앱 전체의 안전이 보장되지는 않습니다.');
       return root;
     },
     renderAiConnection({ status, mode, data, error, checkedAt, explanationAccepted } = {}) {
