@@ -793,31 +793,46 @@ export function createStudentView() {
       const textOr = (value, fallback) =>
         typeof value === 'string' && value.trim().length > 0 ? value : fallback;
 
+      const status = explanation?.status;
+      const errorCode = textOr(explanation?.error?.code, '');
       const eventId = textOr(event?.id, '확인 불가');
 
-      if (explanation?.status === 'ok') {
-        root.setAttribute('data-student-explanation-event', eventId);
-        addLine(`사건 ID: ${eventId}`);
-        addLine(`설명 요약: ${textOr(explanation?.data?.summary, '요약 없음')}`);
-        addLine(`설명 확인 시각: ${textOr(checkedAt, '시각 정보 없음')}`);
+      // 1) 실패는 event 가 null 이어도 먼저 표시합니다. 오류 코드는 만들어 내지 않습니다.
+      if (status === 'error') {
+        addLine(`AI 설명 실패: ${textOr(explanation?.error?.message, '오류 내용을 확인할 수 없습니다.')}`);
+        addLine(`오류 코드: ${errorCode || '확인 불가'}`);
+        if (event) addLine(`사건 ID: ${eventId}`);
+        if (errorCode === 'ON_AI_INVALID_INPUT') {
+          addLine('실패 까닭: 근거 부족 — 설명에 필요한 사건 근거·규칙을 확인할 수 없습니다.');
+        }
+        addLine('기록은 그대로입니다.');
+        addLine('AI 설명 실패는 과제 실패가 아닙니다.');
         return root;
       }
 
-      if (explanation?.status === 'error') {
-        addLine(`사건 ID: ${eventId}`);
-        addLine(`설명 실패 코드: ${textOr(explanation?.error?.code, 'AI_REQUEST_UNVERIFIED')}`);
-        addLine(`설명 실패 내용: ${textOr(explanation?.error?.message, '오류 내용을 확인할 수 없습니다.')}`);
-        addLine('설명 요청이 실패해도 기록은 그대로 유지됩니다.');
+      if (!event) {
+        addLine('보안 기록에서 기록을 먼저 고르세요');
         return root;
       }
 
-      if (explanation?.status === 'loading') {
+      if (status === 'loading') {
         addLine(`사건 ID: ${eventId}`);
         addLine('AI 사건 설명 요청 중');
         return root;
       }
 
-      addLine('아직 사건 설명을 요청하지 않았습니다.');
+      if (status !== 'ok') {
+        addLine(`사건 ID: ${eventId}`);
+        addLine(status === 'idle' || status === undefined
+          ? '아직 사건 설명을 요청하지 않았습니다.'
+          : 'AI 사건 설명 상태 확인 불가');
+        return root;
+      }
+
+      root.setAttribute('data-student-explanation-event', eventId);
+      addLine(`사건 ID: ${eventId}`);
+      addLine(`설명 요약: ${textOr(explanation?.data?.summary, '요약 없음')}`);
+      addLine(`설명 확인 시각: ${textOr(checkedAt, '시각 정보 없음')}`);
       return root;
     },
 
