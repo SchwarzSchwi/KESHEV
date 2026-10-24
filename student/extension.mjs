@@ -592,6 +592,17 @@ export function createStudentView() {
         active: '활성', expired: '만료', revoked: '철회됨', unknown: '확인 불가',
       });
 
+      const notificationSection = section('알림');
+      if (!Array.isArray(notifications)) {
+        addLine(notificationSection, '알림 자료를 확인할 수 없습니다.');
+      } else if (notifications.length === 0) {
+        addLine(notificationSection, '주의할 알림이 없습니다.');
+      } else {
+        for (const notification of notifications) {
+          addLine(notificationSection, `자료(resource): ${text(notification?.resource)} · 코드: ${codeText(notification?.code)} · 메시지: ${text(notification?.message)}`);
+        }
+      }
+
       const diagnosticSection = section('진단 정보');
       showMode(diagnosticSection, diagnostics?.mode);
       if (diagnostics?.status === 'idle') {
