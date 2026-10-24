@@ -422,7 +422,7 @@ export function createStudentView() {
           (def) => eventFilters[def.key] === 'all' || def.pick(event) === eventFilters[def.key]
         );
 
-      // 4) 상세: evidence·rules·세 상태를 구분해 표시합니다. 조치 버튼은 만들지 않습니다.
+      // 4) 상세: evidence·rules·세 상태와 입력된 미지원 조치를 표시합니다. 실행 요청은 보내지 않습니다.
       const renderDetail = (event, detailId) => {
         const detail = document.createElement('section');
         detail.id = detailId;
@@ -461,6 +461,18 @@ export function createStudentView() {
         addLine(detail, `접속 상태(access): ${stateText(accessLabels, event?.state?.access)}`);
         addLine(detail, `세션 상태(session): ${stateText(sessionLabels, event?.state?.session)}`);
         addLine(detail, `기기 상태(device): ${stateText(deviceLabels, event?.state?.device)}`);
+
+        if (Array.isArray(event?.supportedActions) && event.supportedActions.length > 0) {
+          addLine(detail, '아직 지원하지 않음 · 조치 실행 연결은 준비 중입니다.');
+          for (const action of event.supportedActions) {
+            if (typeof action !== 'string' || !action.trim()) continue;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = `${action} 미지원`;
+            button.disabled = true;
+            detail.appendChild(button);
+          }
+        }
 
         return detail;
       };
@@ -529,7 +541,7 @@ export function createStudentView() {
       };
       const credentialPattern = /(?:password|passwd|pwd|secret|token|api[\s_-]*key|authorization|credential|private[\s_-]*key|bearer\s|basic\s|-----BEGIN|(?:sk|pk)[-_](?:live|test)[-_]|sk-[a-z0-9]|gh[pousr]_|github_pat_|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|eyJ[a-z0-9_-]*\.[a-z0-9_-]+\.[a-z0-9_-]+)/i;
       const codeText = (value) =>
-        typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,79}$/.test(value) && !credentialPattern.test(value)
+        typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,79}$/i.test(value) && !credentialPattern.test(value)
           ? value
           : '확인 불가';
       const addLine = (parent, content) => {
