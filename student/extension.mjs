@@ -527,8 +527,9 @@ export function createStudentView() {
         if (typeof value === 'boolean') return String(value);
         return '확인 불가';
       };
+      const credentialPattern = /(?:password|passwd|pwd|secret|token|api[\s_-]*key|authorization|credential|private[\s_-]*key|bearer\s|basic\s|-----BEGIN|(?:sk|pk)[-_](?:live|test)[-_]|sk-[a-z0-9]|gh[pousr]_|github_pat_|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|eyJ[a-z0-9_-]*\.[a-z0-9_-]+\.[a-z0-9_-]+)/i;
       const codeText = (value) =>
-        typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,79}$/.test(value)
+        typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,79}$/.test(value) && !credentialPattern.test(value)
           ? value
           : '확인 불가';
       const addLine = (parent, content) => {
@@ -605,15 +606,74 @@ export function createStudentView() {
 
       const diagnosticSection = section('진단 정보');
       showMode(diagnosticSection, diagnostics?.mode);
+      let diagnosticSnapshot = null;
       if (diagnostics?.status === 'idle') {
         addLine(diagnosticSection, '진단 정보를 아직 조회하지 않았습니다. 제공 화면의 도움정보 불러오기 버튼을 직접 누르세요.');
       } else if (diagnostics?.status === 'loading') {
         addLine(diagnosticSection, '불러오는 중');
       } else if (diagnostics?.status === 'error') {
         showError(diagnosticSection, '진단 정보', diagnostics, '제공 화면의 도움정보 불러오기 버튼을 직접 눌러 다시 시도하세요. 위쪽 다시 불러오기는 진단 정보를 재조회하지 않습니다.');
+      } else if (diagnostics?.status === 'ok' && diagnostics.data &&
+        typeof diagnostics.data === 'object' && !Array.isArray(diagnostics.data)) {
+        const safeValue = (value) => {
+          const valueText = text(value);
+          return credentialPattern.test(valueText) ? '[민감정보 가림]' : valueText;
+        };
+        const engine = diagnostics.data.engine;
+        const validEngine = engine && typeof engine === 'object' && !Array.isArray(engine);
+        const snapshot = {
+          requestId: safeValue(diagnostics.data.requestId),
+          component: safeValue(diagnostics.data.component),
+          version: safeValue(diagnostics.data.version),
+          checkedAt: safeValue(diagnostics.data.checkedAt),
+          engine: {
+            mode: safeValue(validEngine ? engine.mode : undefined),
+            code: safeValue(validEngine ? engine.code : undefined),
+          },
+        };
+        const usable = [
+          snapshot.requestId, snapshot.component, snapshot.version,
+          snapshot.checkedAt, snapshot.engine.mode, snapshot.engine.code,
+        ].some(value => value !== '확인 불가' && value !== '[민감정보 가림]');
+        if (usable) {
+          diagnosticSnapshot = snapshot;
+          addLine(diagnosticSection, `requestId: ${snapshot.requestId}`);
+          addLine(diagnosticSection, `component: ${snapshot.component}`);
+          addLine(diagnosticSection, `version: ${snapshot.version}`);
+          addLine(diagnosticSection, `checkedAt: ${snapshot.checkedAt}`);
+          addLine(diagnosticSection, `engine.mode: ${snapshot.engine.mode}`);
+          addLine(diagnosticSection, `engine.code: ${snapshot.engine.code}`);
+        } else {
+          addLine(diagnosticSection, '표시할 진단 정보를 확인할 수 없습니다.');
+        }
       } else {
         addLine(diagnosticSection, '표시할 진단 정보를 확인할 수 없습니다.');
       }
+      addLine(diagnosticSection, '도움 요청에 사용할 위 여섯 항목만 복사합니다. 외부로 전송하지 않습니다.');
+      const copy = document.createElement('button');
+      copy.type = 'button';
+      copy.textContent = '도움정보 복사';
+      copy.disabled = diagnosticSnapshot === null;
+      diagnosticSection.appendChild(copy);
+      const feedback = addLine(diagnosticSection, '');
+      feedback.setAttribute('role', 'status');
+      feedback.setAttribute('aria-live', 'polite');
+      copy.addEventListener('click', async () => {
+        if (!diagnosticSnapshot) return;
+        copy.disabled = true;
+        try {
+          if (typeof globalThis.navigator?.clipboard?.writeText !== 'function') {
+            feedback.textContent = '이 환경에서는 클립보드 복사를 사용할 수 없습니다. 복사하지 않았습니다.';
+            return;
+          }
+          await globalThis.navigator.clipboard.writeText(JSON.stringify(diagnosticSnapshot, null, 2));
+          feedback.textContent = '도움정보를 클립보드에 복사했습니다.';
+        } catch {
+          feedback.textContent = '클립보드에 복사하지 못했습니다. 브라우저 권한을 확인하고 직접 다시 시도하세요.';
+        } finally {
+          copy.disabled = false;
+        }
+      });
       return root;
     },
     renderVulnerabilities() { return '학생 구현 대기: 정확한 설치 버전·OSV 출처·조회 시각·부분 결과·조회 실패를 구분하세요.'; },
