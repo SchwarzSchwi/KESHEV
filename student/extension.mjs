@@ -829,10 +829,35 @@ export function createStudentView() {
         return root;
       }
 
-      root.setAttribute('data-student-explanation-event', eventId);
-      addLine(`사건 ID: ${eventId}`);
-      addLine(`설명 요약: ${textOr(explanation?.data?.summary, '요약 없음')}`);
+      // 쓸 수 없는 설명은 내용 없이 까닭만 보이고 성공 표식을 붙이지 않습니다.
+      const refuse = (reason) => {
+        addLine(`사건 ID: ${eventId}`);
+        addLine('AI 설명을 쓸 수 없습니다.');
+        addLine(`까닭: ${reason}`);
+        if (errorCode) addLine(`오류 코드: ${errorCode}`);
+        addLine('기록은 그대로입니다.');
+        return root;
+      };
+
+      const data = explanation?.data;
+      const summary = textOr(data?.summary, '');
+      if (!textOr(event.id, '')) return refuse('사건 ID를 확인할 수 없습니다.');
+      if (!data || typeof data !== 'object') return refuse('설명 자료가 없습니다.');
+      if (!summary) return refuse('AI 요약이 없습니다.');
+
+      const addHeading = (text) => {
+        const h = document.createElement('h4');
+        h.textContent = text;
+        root.appendChild(h);
+      };
+
+      addLine(`사건 ID: ${event.id}`);
+      addHeading('AI 설명(참고용)');
+      addLine(summary);
       addLine(`설명 확인 시각: ${textOr(checkedAt, '시각 정보 없음')}`);
+
+      // 모든 확인을 통과한 뒤에만 성공 표식을 붙입니다.
+      root.setAttribute('data-student-explanation-event', event.id);
       return root;
     },
 
